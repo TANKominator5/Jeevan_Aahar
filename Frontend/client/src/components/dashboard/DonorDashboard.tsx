@@ -28,16 +28,24 @@ const statusStyles = {
   "Pending": "bg-warning/10 text-warning border-warning/20",
   "In Process": "bg-info/10 text-info border-info/20",
   "Completed": "bg-success/10 text-success border-success/20",
+  "Rejected": "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 export function DonorDashboard() {
   const { userProfile } = useAuth();
   const [selectedReceiver, setSelectedReceiver] = useState<PopulatedReceiver | null>(null);
   const [isReceiverDialogOpen, setIsReceiverDialogOpen] = useState(false);
+  const [selectedDisposalPartner, setSelectedDisposalPartner] = useState<any>(null);
+  const [isDisposalDialogOpen, setIsDisposalDialogOpen] = useState(false);
 
   const handleViewReceiver = (receiver: PopulatedReceiver) => {
     setSelectedReceiver(receiver);
     setIsReceiverDialogOpen(true);
+  };
+
+  const handleViewDisposalPartner = (donation: DonationResponse) => {
+    setSelectedDisposalPartner(donation.assignedDisposalPartner);
+    setIsDisposalDialogOpen(true);
   };
 
   // Fetch donations from backend
@@ -65,10 +73,13 @@ export function DonorDashboard() {
 
   console.log("Filtered User Donations:", userDonations);
 
-  // Calculate stats
-  const totalDonations = userDonations.length;
-  const totalMeals = userDonations.reduce((sum: number, d: DonationResponse) => sum + d.quantity, 0);
-  const thisMonth = userDonations.filter((d: DonationResponse) => {
+  // Filter out rejected donations for stats (wasted food shouldn't count)
+  const successfulDonations = userDonations.filter((d: DonationResponse) => d.status !== "Rejected");
+
+  // Calculate stats (excluding rejected donations)
+  const totalDonations = successfulDonations.length;
+  const totalMeals = successfulDonations.reduce((sum: number, d: DonationResponse) => sum + d.quantity, 0);
+  const thisMonth = successfulDonations.filter((d: DonationResponse) => {
     const donationDate = new Date(d.createdAt);
     const now = new Date();
     return donationDate.getMonth() === now.getMonth() &&
@@ -206,7 +217,18 @@ export function DonorDashboard() {
                     {donation.acceptedBy && typeof donation.acceptedBy === 'object' && (
                       <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <User className="h-3 w-3" />
-                        Accepted by {donation.acceptedBy.name}
+                        {donation.status === "Rejected" ? "Rejected by" : "Accepted by"} {donation.acceptedBy.name}
+                      </p>
+                    )}
+                    {/* Show rejection details if rejected */}
+                    {donation.status === "Rejected" && donation.rejectedReason && (
+                      <p className="text-xs text-destructive mt-1">
+                        Reason: {donation.rejectedReason}
+                      </p>
+                    )}
+                    {donation.status === "Rejected" && donation.assignedDisposalPartner && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Disposal: {donation.assignedDisposalPartner.name}
                       </p>
                     )}
                   </div>
@@ -218,7 +240,7 @@ export function DonorDashboard() {
                       {format(new Date(donation.pickupDate), "MMM dd")} pickup
                     </p>
                     {/* Show receiver profile button if accepted */}
-                    {donation.acceptedBy && typeof donation.acceptedBy === 'object' && (
+                    {donation.acceptedBy && typeof donation.acceptedBy === 'object' && donation.status !== "Rejected" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -227,6 +249,18 @@ export function DonorDashboard() {
                       >
                         <User className="h-3 w-3 mr-1" />
                         View Receiver
+                      </Button>
+                    )}
+                    {/* Show disposal partner button if rejected */}
+                    {donation.status === "Rejected" && donation.assignedDisposalPartner && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-3 border-destructive/50 text-destructive hover:bg-destructive/10"
+                        onClick={() => handleViewDisposalPartner(donation)}
+                      >
+                        <Package className="h-3 w-3 mr-1" />
+                        View Disposal
                       </Button>
                     )}
                   </div>
@@ -322,6 +356,116 @@ export function DonorDashboard() {
                 Close
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Disposal Partner Dialog */}
+      {isDisposalDialogOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setIsDisposalDialogOpen(false)}
+        >
+          <div className="fixed inset-0 bg-black/50" />
+          <div
+            className="relative bg-card rounded-lg p-6 max-w-2xl w-full mx-4 shadow-lg border-2 border-destructive/20 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-destructive">
+              <Package className="h-5 w-5" />
+              Disposal Partners List
+            </h2>
+
+            {selectedDisposalPartner && (
+              <div className="bg-destructive/10 rounded-lg p-3 mb-4 border border-destructive/30">
+                <p className="text-sm font-medium text-destructive">
+                  ✓ Assigned: {selectedDisposalPartner.name}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {[
+                {
+                  name: "West Bengal Waste Management Limited (WBWML)",
+                  contact: "+91-33-2289-3088",
+                  location: "Kolkata – Park Circus / Haldia"
+                },
+                {
+                  name: "Medicare Environmental Management Pvt. Ltd.",
+                  contact: "+91-33-2289-3088",
+                  location: "Howrah – Belgachia"
+                },
+                {
+                  name: "Green Tech Environ Management Pvt. Ltd.",
+                  contact: "+91-33-2534-1121",
+                  location: "Lake Town – Near Salt Lake"
+                },
+                {
+                  name: "Re Sustainability Limited (C&D Waste Plant)",
+                  contact: "+91-40-2444-6000",
+                  location: "New Town – Action Area III"
+                },
+                {
+                  name: "Eco Age Recycling",
+                  contact: "+91-90387-21515",
+                  location: "Kolkata – Rafi Ahmed Kidwai Road"
+                }
+              ].map((partner, index) => {
+                const isAssigned = selectedDisposalPartner?.name === partner.name;
+                return (
+                  <div
+                    key={index}
+                    className={`rounded-lg p-4 border ${isAssigned
+                      ? 'bg-destructive/5 border-destructive/30 ring-2 ring-destructive/20'
+                      : 'bg-secondary/30 border-border'
+                      }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-base mb-2 flex items-center gap-2">
+                          {partner.name}
+                          {isAssigned && (
+                            <Badge variant="destructive" className="text-xs">
+                              Assigned
+                            </Badge>
+                          )}
+                        </h3>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                            <a
+                              href={`tel:${partner.contact}`}
+                              className="text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {partner.contact}
+                            </a>
+                          </div>
+                          <div className="flex items-start gap-2 text-sm">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+                            <span className="text-muted-foreground">{partner.location}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="bg-secondary/30 rounded-lg p-3 text-xs text-muted-foreground mt-4">
+              <p>
+                ℹ️ These are the available waste management partners in West Bengal. The highlighted partner has been automatically assigned for this rejected donation.
+              </p>
+            </div>
+
+            <Button
+              className="w-full mt-4"
+              onClick={() => setIsDisposalDialogOpen(false)}
+            >
+              Close
+            </Button>
           </div>
         </div>
       )}

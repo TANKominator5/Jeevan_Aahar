@@ -49,6 +49,12 @@ export interface PopulatedReceiver {
     role: "donor" | "recipient";
 }
 
+export interface DisposalPartner {
+    name: string;
+    contact: string;
+    location: string;
+}
+
 export interface DonationResponse {
     donor: string | PopulatedDonor | undefined;
     _id: string;
@@ -66,10 +72,14 @@ export interface DonationResponse {
     pickupDate: Date;
     latitude?: number;
     longitude?: number;
-    status: "Pending" | "In Process" | "Completed";
+    status: "Pending" | "In Process" | "Completed" | "Rejected";
     acceptedBy?: string | PopulatedReceiver;
     acceptedAt?: Date;
     completedAt?: Date;
+    rejectedBy?: string | PopulatedReceiver;
+    rejectedAt?: Date;
+    rejectedReason?: string;
+    assignedDisposalPartner?: DisposalPartner;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -243,6 +253,47 @@ export async function completeDonation(donationId: string): Promise<ApiResponse<
         return await response.json();
     } catch (error) {
         console.error("Error completing donation:", error);
+        throw error;
+    }
+}
+
+/**
+ * Reject a donation as waste (receiver who accepted only)
+ * Changes status from In Process to Rejected
+ * Requires disposal partner selection
+ */
+export async function rejectDonation(
+    donationId: string,
+    reason: string,
+    disposalPartner: DisposalPartner
+): Promise<ApiResponse<DonationResponse>> {
+    try {
+        const user = auth.currentUser;
+        const token = user ? await user.getIdToken() : null;
+
+        if (!token) {
+            throw new Error("User not authenticated");
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/donation/${donationId}/reject`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ reason, disposalPartner }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+                errorData.message || `Failed to reject donation: ${response.statusText}`
+            );
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Error rejecting donation:", error);
         throw error;
     }
 }

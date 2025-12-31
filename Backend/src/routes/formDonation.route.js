@@ -4,6 +4,7 @@ import {
   getAllDonations,
   acceptDonation,
   completeDonation,
+  rejectDonation,
 } from "../controllers/donationcontrollers.js";
 
 import {
@@ -31,6 +32,9 @@ router.patch("/:id/accept", authenticateAndLoadProfile, requireCompletedProfile,
 
 // Complete donation (receiver who accepted only)
 router.patch("/:id/complete", authenticateAndLoadProfile, requireCompletedProfile, completeDonation);
+
+// Reject donation as waste (receiver who accepted only)
+router.patch("/:id/reject", authenticateAndLoadProfile, requireCompletedProfile, rejectDonation);
 
 
 export default router;

@@ -211,4 +211,85 @@ const completeDonation = async (req, res) => {
   }
 };
 
-export { createDonationForm, getAllDonations, acceptDonation, completeDonation };
+/**
+ * Reject a donation as waste (Receiver who accepted only)
+ * Changes status from In Process to Rejected
+ * Accepts disposal partner from request body
+ */
+const rejectDonation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, disposalPartner } = req.body;
+    const receiverProfile = req.profile;
+
+    // Validate reason
+    if (!reason || reason.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required",
+      });
+    }
+
+    // Validate disposal partner
+    if (!disposalPartner || !disposalPartner.name || !disposalPartner.contact || !disposalPartner.location) {
+      return res.status(400).json({
+        success: false,
+        message: "Disposal partner information is required",
+      });
+    }
+
+    // Find donation
+    const donation = await donationForm.findById(id);
+    if (!donation) {
+      return res.status(404).json({
+        success: false,
+        message: "Donation not found",
+      });
+    }
+
+    // Check if donation is in process
+    if (donation.status !== "In Process") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot reject donation with status: ${donation.status}`,
+      });
+    }
+
+    // Check if current user is the one who accepted
+    if (!donation.acceptedBy || donation.acceptedBy.toString() !== receiverProfile._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the receiver who accepted this donation can mark it as rejected",
+      });
+    }
+
+    // Update donation with provided disposal partner
+    donation.status = "Rejected";
+    donation.rejectedBy = receiverProfile._id;
+    donation.rejectedAt = new Date();
+    donation.rejectedReason = reason.trim();
+    donation.assignedDisposalPartner = {
+      name: disposalPartner.name,
+      contact: disposalPartner.contact,
+      location: disposalPartner.location,
+    };
+    await donation.save();
+
+    // Populate donor, receiver, and rejectedBy info
+    await donation.populate('donor', 'uid name email phone address landmark latitude longitude avatar role');
+    await donation.populate('acceptedBy', 'uid name email phone address landmark latitude longitude avatar role');
+    await donation.populate('rejectedBy', 'uid name email phone address landmark latitude longitude avatar role');
+
+    return res.status(200).json(
+      new ApiResponse(200, donation, "Donation marked as rejected and disposal partner assigned")
+    );
+  } catch (error) {
+    console.error("❌ Reject donation failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to reject donation",
+    });
+  }
+};
+
+export { createDonationForm, getAllDonations, acceptDonation, completeDonation, rejectDonation };

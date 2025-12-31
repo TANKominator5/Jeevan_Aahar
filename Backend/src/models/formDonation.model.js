@@ -62,7 +62,7 @@ const donationFormSchema = new Schema(
         // Status tracking fields
         status: {
             type: String,
-            enum: ["Pending", "In Process", "Completed"],
+            enum: ["Pending", "In Process", "Completed", "Rejected"],
             default: "Pending",
             required: true,
         },
@@ -75,6 +75,22 @@ const donationFormSchema = new Schema(
         },
         completedAt: {
             type: Date,
+        },
+        // Rejection / Waste tracking fields
+        rejectedBy: {
+            type: Schema.Types.ObjectId,
+            ref: "Profile",
+        },
+        rejectedAt: {
+            type: Date,
+        },
+        rejectedReason: {
+            type: String,
+        },
+        assignedDisposalPartner: {
+            name: String,
+            contact: String,
+            location: String,
         },
     },
     {
