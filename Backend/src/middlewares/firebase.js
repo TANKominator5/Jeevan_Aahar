@@ -37,11 +37,14 @@ export const authenticateAndLoadProfile = async (req, res, next) => {
       const roleToUse = role || req.query.role;
 
       if (!roleToUse || !["donor", "recipient"].includes(roleToUse)) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied. Your account does not have a valid role assigned.",
-          requiresRoleClaim: true,
-        });
+        // User exists in Firebase but not in MongoDB and no role provided
+        // Allow the request but mark that profile needs to be created
+        req.profile = null;
+        req.firebaseUser = decodedToken;
+        req.needsProfileSetup = true;
+
+        console.log(`⚠️  User ${email} authenticated but has no MongoDB profile. Needs role assignment.`);
+        return next();
       }
 
       profile = await Profile.create({
@@ -52,7 +55,7 @@ export const authenticateAndLoadProfile = async (req, res, next) => {
         isCompleted: false,
       });
 
-      console.log(`✅ New profile created for ${email} as ${role}`);
+      console.log(`✅ New profile created for ${email} as ${roleToUse}`);
     }
 
     // 5. Attach profile to request

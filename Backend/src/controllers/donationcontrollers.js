@@ -82,6 +82,15 @@ const createDonationForm = async (req, res) => {
 
 const getAllDonations = async (req, res) => {
   try {
+    // Check if user needs profile setup
+    if (req.needsProfileSetup) {
+      return res.status(403).json({
+        success: false,
+        message: "Profile setup required. Please complete your profile with a role assignment.",
+        needsProfileSetup: true,
+      });
+    }
+
     const donations = await donationForm
       .find()
       .populate('donor', 'uid name email phone address landmark latitude longitude avatar role') // Populate donor profile
