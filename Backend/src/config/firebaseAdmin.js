@@ -1,20 +1,17 @@
 import admin from "firebase-admin";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Optional: only needed for local development
+// On Render, env vars are already injected
+import "dotenv/config";
 
-// Absolute path to service key
-const serviceAccountPath = path.join(
-  __dirname,
-  "../../jeevan-aahar-auth-firebase-adminsdk-fbsvc-428749bedf.json"
-);
+if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  throw new Error(
+    "FIREBASE_SERVICE_ACCOUNT environment variable is not set"
+  );
+}
 
 const serviceAccount = JSON.parse(
-  fs.readFileSync(serviceAccountPath, "utf8")
+  process.env.FIREBASE_SERVICE_ACCOUNT
 );
 
 if (!admin.apps.length) {
@@ -24,4 +21,3 @@ if (!admin.apps.length) {
 }
 
 export default admin;
-
