@@ -596,5 +596,5 @@ We welcome contributions from the community! Here's how you can help:
 
 <div align="center">
   <p><strong>Made with ❤️ by Team 404_Not_Found</strong></p>
-  <p><em>A Meal. A Smile. A Life. 🍽️✨/em></p>
+  <p><em>A Meal. A Smile. A Life. 🍽️✨ </em></p>
 </div>
