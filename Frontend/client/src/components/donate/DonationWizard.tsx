@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Check, ChevronLeft, ChevronRight, MapPin, Clock, Package, Utensils, User, Phone, Send, CheckCircle2, Camera, X, Image, Navigation } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Check, ChevronLeft, ChevronRight, MapPin, Clock, Package, Utensils, User, Phone, Send, CheckCircle2, Camera, X, Image, Navigation, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,6 +67,42 @@ export function DonationWizard() {
     latitude: undefined,
     longitude: undefined,
   });
+
+  // Auto-populate form fields from user profile on mount
+  useEffect(() => {
+    if (userProfile) {
+      setFormData(prev => ({
+        ...prev,
+        address: userProfile.address || prev.address,
+        landmark: userProfile.landmark || prev.landmark,
+        phone: userProfile.phone || prev.phone,
+        latitude: userProfile.latitude ?? prev.latitude,
+        longitude: userProfile.longitude ?? prev.longitude,
+        contactName: userProfile.name || prev.contactName,
+        email: userProfile.email || prev.email,
+      }));
+    }
+  }, [userProfile]);
+
+  // Function to manually populate profile info
+  const fillFromProfile = () => {
+    if (userProfile) {
+      setFormData(prev => ({
+        ...prev,
+        address: userProfile.address || "",
+        landmark: userProfile.landmark || "",
+        phone: userProfile.phone || "",
+        latitude: userProfile.latitude,
+        longitude: userProfile.longitude,
+        contactName: userProfile.name || "",
+        email: userProfile.email || "",
+      }));
+      toast({
+        title: "Profile info loaded! ✅",
+        description: "Your contact details have been filled from your profile.",
+      });
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -385,9 +421,23 @@ export function DonationWizard() {
           {/* Step 3: Pickup Location */}
           {currentStep === 3 && (
             <div className="space-y-6 animate-fade-in">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Pickup Location</h3>
-                <p className="text-muted-foreground">Where should our volunteer pick up the food?</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Pickup Location</h3>
+                  <p className="text-muted-foreground">Where should our volunteer pick up the food?</p>
+                </div>
+                {userProfile && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={fillFromProfile}
+                    className="gap-2"
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    Use Profile Info
+                  </Button>
+                )}
               </div>
               <div className="space-y-6">
                 <div className="space-y-2">
@@ -468,9 +518,23 @@ export function DonationWizard() {
           {/* Step 4: Contact Details */}
           {currentStep === 4 && (
             <div className="space-y-6 animate-fade-in">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Contact Information</h3>
-                <p className="text-muted-foreground">How can our volunteer reach you for pickup?</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Contact Information</h3>
+                  <p className="text-muted-foreground">How can our volunteer reach you for pickup?</p>
+                </div>
+                {userProfile && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={fillFromProfile}
+                    className="gap-2"
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    Use Profile Info
+                  </Button>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">

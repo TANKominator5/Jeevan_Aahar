@@ -1,14 +1,25 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Phone, Home, Navigation, User, Camera, ArrowLeft, Save } from "lucide-react";
+import { MapPin, Phone, Home, Navigation, User, Camera, ArrowLeft, Save, Package, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUserProfile } from "@/services/userService";
+import { useQuery } from "@tanstack/react-query";
+import { getDonations, DonationResponse } from "@/services/donationService";
+import { format } from "date-fns";
+
+const statusStyles = {
+    "Pending": "bg-warning/10 text-warning border-warning/20",
+    "In Process": "bg-info/10 text-info border-info/20",
+    "Completed": "bg-success/10 text-success border-success/20",
+    "Rejected": "bg-destructive/10 text-destructive border-destructive/20",
+};
 
 export default function ProfilePage() {
     const { toast } = useToast();
@@ -16,6 +27,25 @@ export default function ProfilePage() {
     const { user, userProfile, refreshUserProfile } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+    // Fetch donations from backend
+    const { data: donationsData, isLoading: isDonationsLoading } = useQuery({
+        queryKey: ["donations"],
+        queryFn: getDonations,
+        enabled: !!userProfile, // Only fetch when user is authenticated
+    });
+
+    // Filter donations by current user's uid
+    const userDonations = donationsData?.data?.filter(
+        (donation: DonationResponse) => {
+            // Check if donation.donor is populated object or uid string
+            if (typeof donation.donor === 'object' && donation.donor) {
+                return donation.donor.uid === userProfile?.uid;
+            }
+            // Fallback to string comparison
+            return donation.donor === userProfile?.uid;
+        }
+    ) || [];
 
     const [formData, setFormData] = useState({
         phone: "",
@@ -319,6 +349,98 @@ export default function ProfilePage() {
                                 </Button>
                             </div>
                         </form>
+                    </CardContent>
+                </Card>
+
+                {/* Donation History Section */}
+                <Card className="border-border shadow-card mt-6">
+                    <CardHeader>
+                        <CardTitle className="text-xl">Donation History</CardTitle>
+                        <CardDescription>
+                            Your recent donations and their current status
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isDonationsLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            </div>
+                        ) : userDonations.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <div className="p-4 rounded-full bg-secondary/50 mb-4">
+                                    <Inbox className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                                <h3 className="text-lg font-semibold mb-2">No donations yet</h3>
+                                <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+                                    You haven't made any donations yet. Start sharing your surplus food to make a difference!
+                                </p>
+                                {userProfile?.role === "donor" && (
+                                    <Button className="gradient-hero border-0" onClick={() => navigate("/donate")}>
+                                        <Package className="mr-2 h-4 w-4" />
+                                        Make Your First Donation
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {userDonations.slice(0, 5).map((donation: DonationResponse) => (
+                                    <div
+                                        key={donation._id}
+                                        className="flex items-center gap-4 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                                    >
+                                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
+                                            <img
+                                                src={donation.picture}
+                                                alt={donation.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <p className="font-medium truncate">{donation.name}</p>
+                                                <Badge variant="outline" className={statusStyles[donation.status]}>
+                                                    {donation.status}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                                {donation.quantity} servings{donation.foodType ? ` • ${donation.foodType}` : ''}
+                                            </p>
+                                            {/* Show receiver info if accepted */}
+                                            {donation.acceptedBy && typeof donation.acceptedBy === 'object' && (
+                                                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                                    <User className="h-3 w-3" />
+                                                    {donation.status === "Rejected" ? "Rejected by" : "Accepted by"} {donation.acceptedBy.name}
+                                                </p>
+                                            )}
+                                            {/* Show rejection details if rejected */}
+                                            {donation.status === "Rejected" && donation.rejectedReason && (
+                                                <p className="text-xs text-destructive mt-1">
+                                                    Reason: {donation.rejectedReason}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col gap-1 items-end text-right flex-shrink-0">
+                                            <p className="text-sm text-muted-foreground">
+                                                {format(new Date(donation.createdAt), "MMM dd, yyyy")}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {format(new Date(donation.pickupDate), "MMM dd")} pickup
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {userDonations.length > 5 && (
+                                    <div className="pt-2 text-center">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => navigate(userProfile?.role === "donor" ? "/donate-dashboard" : "/request-dashboard")}
+                                        >
+                                            View All Donations
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
